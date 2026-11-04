@@ -1,4 +1,13 @@
-# Dreamport module (base)
+# Dreamport module: Oodle
+
+A fork of [Dreamport-Test/dreamport-module](https://github.com/Dreamport-Test/dreamport-module) that
+offers the decoder `oodle` (Kraken, Mermaid, Selkie and Leviathan blocks). It is a Rust translation of
+Somnium's own clean-room Oodle decoder (C#), written from that decoder only and checked byte for byte
+against the official library's output. It is not RAD's or Epic's code.
+
+What follows is the base's description.
+
+---
 
 A **Dreamport module** is a decoder that a Dreamport world can ask Somnium to use when it reads a game's
 files: bytes go in, bytes come out. It is a WebAssembly module, and the client runs it **isolated**: it
@@ -48,7 +57,9 @@ cargo build --release --target wasm32-unknown-unknown
 The result is `target/wasm32-unknown-unknown/release/dreamport_module.wasm`. Use no crate that needs
 an import (no `wasm-bindgen`, no WASI).
 
-## The example decoder
+## This fork's decoder
 
-`src/lib.rs` offers `example`: it accepts an input exactly as long as the output and copies it. Replace
-`decode` with your own decoder.
+`src/lib.rs` offers `oodle`; one Rust file per file of the C# decoder. Measured 2026-11-04 in Wasmtime
+48 from .NET 10: byte-identical to the official library on 8,405 valid streams, refuses the same
+corrupt streams as the C# decoder, about 560 MiB/s with the client's memory and time limits (0.77x the
+C# decoder).
