@@ -17,15 +17,16 @@ one container, such as an Unreal `.pak`), or both, in one `.wasm` with one SHA-2
 client runs it **isolated**: it cannot open files, use the network or see anything of the player's machine.
 A reader can read the one container it is listing, through the host, and nothing else.
 
-This repository is the base. **To make a module, fork it**, put your code in `src/`, list the names it
-offers in `module.json`, and push a tag of your own name (`v1-lz4`, ...). The release workflow builds `module.wasm` and
-publishes it with its SHA-256.
+This repository is the base. **To make a module, fork it**, put your code in `src/`, say what it offers in
+`dp_describe` and `module.json`, and push a tag of your own name (`v1-lz4`, ...). The release workflow builds
+`module.wasm` and publishes it with its SHA-256.
 
-A world's pattern names a module by **its fork, its release tag and the SHA-256 of `module.wasm`**, once per
-source, with every name it uses joined by `+`:
+**Somnium keeps no list of formats.** A module answers the names its author chooses, `oodle`, `bsa` or a format
+Somnium has never heard of, and a world can use it without Somnium updating anything. A world's pattern names a
+module by **its repository, its release tag and the SHA-256 of `module.wasm`**, on each source that uses it:
 
 ```
-module=unrealpak+oodle:Owner/repo@tag#sha256
+module=Owner/repo@tag#sha256
 ```
 
 The client asks the player before downloading it, keeps one copy per SHA-256, and refuses a file whose hash
@@ -33,29 +34,32 @@ differs. A module you change gets a new tag and a new hash; patterns that name t
 
 > Test repository (2026-11): a prototype of the design, not a Somnium service.
 
-## The ABI (version 3)
+## The ABI (version 4)
 
 `module.json`:
 
 ```json
-{ "abi": 3, "decoders": ["oodle"], "readers": ["unrealpak"] }
+{ "abi": 4, "decoders": ["oodle"], "readers": ["unrealpak"] }
 ```
 
-`decoders` and `readers` are the names a pattern asks for; each must be one Somnium knows. The client checks
-that every listed name has its export: `dp_decode` for decoders, `dp_list` for readers. The host runs only
-version 3: `dp_abi` must answer 3.
+`decoders` and `readers` are the names the module answers, any you choose: lowercase letters, digits and inner
+hyphens, at most 32 characters. A source's `reader` in a pattern is one of them (or one Somnium ships), and each
+entry a reader lists names its decoder. `module.json` is for people and for the module search; the client trusts
+only what the module itself says in `dp_describe`, since the hash covers the `.wasm` and not `module.json`, so keep
+the two the same. The host runs only version 4: `dp_abi` must answer 4.
 
 ### Exports
 
 | Export | Signature | Meaning |
 |---|---|---|
 | `memory` | memory | the module's memory |
-| `dp_abi` | `() -> i32` | 3 |
+| `dp_abi` | `() -> i32` | 4 |
+| `dp_describe` | `() -> i64` | writes `{"readers":[...],"decoders":[...]}` (UTF-8 JSON, at most 64 KiB) at `dp_output()` and returns its length |
 | `dp_alloc` | `(len: u32) -> u32` | a block of `len` bytes in the module's memory, 16-byte aligned; 0 when it cannot |
 | `dp_free` | `(ptr: u32, len: u32)` | gives back a block from `dp_alloc`, with the same `len` |
 | `dp_decode` | `(name_ptr: u32, name_len: u32, in_ptr: u32, in_len: u32, out_ptr: u32, out_len: u32) -> i64` | decodes `in_len` bytes into exactly `out_len` bytes with the decoder named (UTF-8, one of `decoders`); returns `out_len`, or a negative refusal |
 | `dp_list` | `(container_len: i64) -> i64` | lists the one container the host has open; returns the listing's length in bytes, or a negative refusal |
-| `dp_output` | `() -> i32` | where the listing of the last `dp_list` lies; valid until the next `dp_list` |
+| `dp_output` | `() -> i32` | where the bytes of the last `dp_describe` or `dp_list` lie; valid until the next of either |
 
 `dp_decode`'s input and output blocks must not overlap, and a refused call must leave zeros in the output.
 Refusals are negative: -1 corrupt, -2 not supported (a decoder name it does not offer, encrypted, unknown

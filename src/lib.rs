@@ -1,4 +1,4 @@
-//! Somnium's Oodle decoder and Unreal .pak reader as a WebAssembly module (ABI v3).
+//! Somnium's Oodle decoder and Unreal .pak reader as a WebAssembly module (ABI v4).
 //! The decoder is a function-by-function translation of `dreamport/contract/Decode/Oodle/*.cs`; the reader, of
 //! the client's `Unpackers/Pak/*.cs`. The reader's only import is `dp_host.read`, the container being listed.
 
@@ -31,7 +31,8 @@ mod tans_weights;
 use std::alloc::{alloc, dealloc, Layout};
 use std::cell::UnsafeCell;
 
-const ABI_VERSION: u32 = 3;
+const ABI_VERSION: u32 = 4;
+const DESCRIPTION: &[u8] = br#"{"readers":["unrealpak"],"decoders":["oodle"]}"#;
 const ALIGN: usize = 16;
 
 struct Held {
@@ -107,4 +108,12 @@ pub extern "C" fn dp_list(container_len: i64) -> i64 {
 #[no_mangle]
 pub extern "C" fn dp_output() -> u32 {
     unsafe { (*STATE.0.get()).listing.as_ptr() as usize as u32 }
+}
+
+/// What this module answers, in its own words, at dp_output until the next dp_list or dp_describe.
+#[no_mangle]
+pub extern "C" fn dp_describe() -> i64 {
+    let held = unsafe { &mut *STATE.0.get() };
+    held.listing = DESCRIPTION.to_vec();
+    held.listing.len() as i64
 }
