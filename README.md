@@ -18,7 +18,7 @@ client runs it **isolated**: it cannot open files, use the network or see anythi
 A reader can read the one container it is listing, through the host, and nothing else.
 
 This repository is the base. **To make a module, fork it**, put your code in `src/`, list the names it
-offers in `module.json`, and push a tag (`v1`, `v2`, ...). The release workflow builds `module.wasm` and
+offers in `module.json`, and push a tag of your own name (`v1-lz4`, ...). The release workflow builds `module.wasm` and
 publishes it with its SHA-256.
 
 A world's pattern names a module by **its fork, its release tag and the SHA-256 of `module.wasm`**, once per
@@ -33,33 +33,33 @@ differs. A module you change gets a new tag and a new hash; patterns that name t
 
 > Test repository (2026-11): a prototype of the design, not a Somnium service.
 
-## The ABI (version 2)
+## The ABI (version 3)
 
 `module.json`:
 
 ```json
-{ "abi": 2, "decoders": ["oodle"], "readers": ["unrealpak"] }
+{ "abi": 3, "decoders": ["oodle"], "readers": ["unrealpak"] }
 ```
 
 `decoders` and `readers` are the names a pattern asks for; each must be one Somnium knows. The client checks
-that every listed name has its export: `dp_decode` for decoders, `dp_list` for readers. A module with no
-reader behaves exactly like a version 1 module.
+that every listed name has its export: `dp_decode` for decoders, `dp_list` for readers. The host runs only
+version 3: `dp_abi` must answer 3.
 
 ### Exports
 
 | Export | Signature | Meaning |
 |---|---|---|
 | `memory` | memory | the module's memory |
-| `dp_abi` | `() -> i32` | 2 |
+| `dp_abi` | `() -> i32` | 3 |
 | `dp_alloc` | `(len: u32) -> u32` | a block of `len` bytes in the module's memory, 16-byte aligned; 0 when it cannot |
 | `dp_free` | `(ptr: u32, len: u32)` | gives back a block from `dp_alloc`, with the same `len` |
-| `dp_decode` | `(in_ptr: u32, in_len: u32, out_ptr: u32, out_len: u32) -> i64` | decodes `in_len` bytes into exactly `out_len` bytes; returns `out_len`, or a negative refusal |
+| `dp_decode` | `(name_ptr: u32, name_len: u32, in_ptr: u32, in_len: u32, out_ptr: u32, out_len: u32) -> i64` | decodes `in_len` bytes into exactly `out_len` bytes with the decoder named (UTF-8, one of `decoders`); returns `out_len`, or a negative refusal |
 | `dp_list` | `(container_len: i64) -> i64` | lists the one container the host has open; returns the listing's length in bytes, or a negative refusal |
 | `dp_output` | `() -> i32` | where the listing of the last `dp_list` lies; valid until the next `dp_list` |
 
 `dp_decode`'s input and output blocks must not overlap, and a refused call must leave zeros in the output.
-Refusals are negative: -1 corrupt, -2 not supported (encrypted, unknown version, unknown codec), -3 too
-large, -5 bad arguments. The client gives each call a time limit and caps the module's memory; a module that
+Refusals are negative: -1 corrupt, -2 not supported (a decoder name it does not offer, encrypted, unknown
+version, unknown codec), -3 too large, -5 bad arguments. The client gives each call a time limit and caps the module's memory; a module that
 traps or runs out of time is treated as a refusal.
 
 ### The one import, for readers only

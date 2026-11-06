@@ -1,4 +1,4 @@
-//! Somnium's Oodle decoder and Unreal .pak reader as a WebAssembly module (ABI v2).
+//! Somnium's Oodle decoder and Unreal .pak reader as a WebAssembly module (ABI v3).
 //! The decoder is a function-by-function translation of `dreamport/contract/Decode/Oodle/*.cs`; the reader, of
 //! the client's `Unpackers/Pak/*.cs`. The reader's only import is `dp_host.read`, the container being listed.
 
@@ -31,7 +31,7 @@ mod tans_weights;
 use std::alloc::{alloc, dealloc, Layout};
 use std::cell::UnsafeCell;
 
-const ABI_VERSION: u32 = 2;
+const ABI_VERSION: u32 = 3;
 const ALIGN: usize = 16;
 
 struct Held {
@@ -73,12 +73,17 @@ pub extern "C" fn dp_free(ptr: u32, len: u32) {
 }
 
 #[no_mangle]
-pub extern "C" fn dp_decode(in_ptr: u32, in_len: u32, out_ptr: u32, out_len: u32) -> i64 {
-    if (in_ptr == 0 && in_len != 0) || (out_ptr == 0 && out_len != 0) || out_len > i32::MAX as u32 {
+pub extern "C" fn dp_decode(name_ptr: u32, name_len: u32, in_ptr: u32, in_len: u32, out_ptr: u32, out_len: u32) -> i64 {
+    if (name_ptr == 0 && name_len != 0) || (in_ptr == 0 && in_len != 0) || (out_ptr == 0 && out_len != 0) || out_len > i32::MAX as u32 {
         return refusal::BAD_ARGUMENTS as i64;
     }
+    let name: &[u8] = if name_len == 0 { &[] } else { unsafe { std::slice::from_raw_parts(name_ptr as usize as *const u8, name_len as usize) } };
     let input: &[u8] = if in_len == 0 { &[] } else { unsafe { std::slice::from_raw_parts(in_ptr as usize as *const u8, in_len as usize) } };
     let output: &mut [u8] = if out_len == 0 { &mut [] } else { unsafe { std::slice::from_raw_parts_mut(out_ptr as usize as *mut u8, out_len as usize) } };
+    if name != b"oodle" {
+        output.fill(0);
+        return refusal::UNSUPPORTED_CODEC as i64;
+    }
     let chunks = unsafe { (*STATE.0.get()).chunks.get_or_insert_with(block_chunks::BlockChunks::new) };
     decoder::decompress(chunks, input, output, out_len as i32)
 }

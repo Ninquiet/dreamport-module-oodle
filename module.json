@@ -1,1 +1,1 @@
-{ "abi": 2, "decoders": ["oodle"], "readers": ["unrealpak"] }
+{ "abi": 3, "decoders": ["oodle"], "readers": ["unrealpak"] }
